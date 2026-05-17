@@ -12,7 +12,7 @@ class QTGNModel(nn.Module):
         self.latent_dim = latent_dim
         self.embed_dim = embed_dim
 
-    def generate(self, prompt_tensor, device, max_time=3.0, step_size=0.2, temperature=0.4):
+    def generate(self, prompt_tensor, device, max_time=4.0, step_size=0.2, temperature=0.4):
         self.eval()
         context_vec = self.resonator(prompt_tensor.to(device))
         
@@ -21,6 +21,8 @@ class QTGNModel(nn.Module):
         last_embed = torch.zeros(self.embed_dim).to(device)
         
         num_steps = int(max_time / step_size)
+        last_idx = -1
+        rep_counter = 0
         
         for i in range(num_steps):
             t_curr = i * step_size
@@ -35,6 +37,17 @@ class QTGNModel(nn.Module):
             token_idx = torch.multinomial(probs, 1).item()
             generated_indices.append(token_idx)
             
+            # Anti-Loop Logic
+            if token_idx == last_idx:
+                rep_counter += 1
+            else:
+                rep_counter = 0
+            
+            # Se repetir 3 vezes, para
+            if rep_counter >= 3:
+                break
+                
+            last_idx = token_idx
             last_embed = self.embedding_layer(torch.tensor([token_idx]).to(device)).squeeze(0)
             z_current = z_next
             
